@@ -97,3 +97,103 @@
     (<= (len attributes) u10)
   )
 )
+
+(define-private (is-valid-world-access (worlds (list 10 uint)))
+  (and
+    (>= (len worlds) u1)
+    (<= (len worlds) u10)
+    (fold check-world-exists worlds true)
+  )
+)
+
+(define-private (check-world-exists
+    (world-id uint)
+    (valid bool)
+  )
+  (and valid (is-some (get-world-details world-id)))
+)
+
+;; NFT DEFINITIONS
+
+(define-non-fungible-token nexusvault-asset uint)
+(define-non-fungible-token nexusvault-avatar uint)
+
+;; ASSET METADATA STORAGE
+
+(define-map nexusvault-asset-metadata
+  { token-id: uint }
+  {
+    name: (string-ascii 50),
+    description: (string-ascii 200),
+    rarity: (string-ascii 20),
+    power-level: uint,
+    world-id: uint,
+    attributes: (list 10 (string-ascii 20)),
+    experience: uint,
+    level: uint,
+  }
+)
+
+;; AVATAR SYSTEM
+
+(define-map avatar-metadata
+  { avatar-id: uint }
+  {
+    name: (string-ascii 50),
+    level: uint,
+    experience: uint,
+    achievements: (list 20 (string-ascii 50)),
+    equipped-assets: (list 5 uint),
+    world-access: (list 10 uint),
+  }
+)
+
+;; VIRTUAL WORLDS
+
+(define-map game-worlds
+  { world-id: uint }
+  {
+    name: (string-ascii 50),
+    description: (string-ascii 200),
+    entry-requirement: uint,
+    active-players: uint,
+    total-rewards: uint,
+  }
+)
+
+;; COMPETITIVE LEADERBOARD
+
+(define-map leaderboard
+  { player: principal }
+  {
+    score: uint,
+    games-played: uint,
+    total-rewards: uint,
+    avatar-id: uint,
+    rank: uint,
+    achievements: (list 20 (string-ascii 50)),
+  }
+)
+
+;; UTILITY FUNCTIONS
+
+(define-read-only (is-protocol-admin (sender principal))
+  (default-to false (map-get? protocol-admin-whitelist sender))
+)
+
+(define-read-only (is-valid-principal (input principal))
+  (and
+    (not (is-eq input tx-sender))
+    (not (is-eq input (as-contract tx-sender)))
+  )
+)
+
+(define-read-only (is-safe-principal (input principal))
+  (and
+    (is-valid-principal input)
+    (or
+      (is-protocol-admin input)
+      (is-some (map-get? leaderboard { player: input }))
+    )
+  )
+)
